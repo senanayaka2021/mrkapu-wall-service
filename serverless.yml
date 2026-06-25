@@ -1,0 +1,133 @@
+service: mrkapu-wall-service
+
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  architecture: arm64
+  region: ${opt:region, 'ap-southeast-1'}
+  stage: ${opt:stage, 'dev'}
+  profile: owlester
+  memorySize: 512
+  timeout: 30
+
+  environment:
+    NODE_ENV: production
+    MONGODB_URI: ${env:MONGODB_URI}
+    JWT_SECRET: ${env:JWT_SECRET}
+    AWS_S3_BUCKET: ${env:AWS_S3_BUCKET}
+    AWS_S3_PUBLIC_URL: ${env:AWS_S3_PUBLIC_URL, ''}
+    EVENT_BUS_NAME: ${env:EVENT_BUS_NAME, 'default'}
+    COGNITO_USER_POOL_ID: ${env:COGNITO_USER_POOL_ID}
+    COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID}
+    WALL_RANKING_DEBUG: ${env:WALL_RANKING_DEBUG, 'false'}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: arn:aws:s3:::${env:AWS_S3_BUCKET}/*
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - rekognition:DetectModerationLabels
+          Resource: '*'
+
+  httpApi:
+    cors:
+      allowedOrigins:
+        - '*'
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+
+package:
+  patterns:
+    # Project files never needed in Lambda
+    - '!src/**'
+    - '!test/**'
+    - '!.env*'
+    - '!*.md'
+    - '!tsconfig*.json'
+    - '!nest-cli.json'
+    - '!.eslintrc*'
+    - '!.prettierrc'
+    - '!coverage/**'
+    - '!.git/**'
+
+    # Build & compile tools
+    - '!node_modules/@angular-devkit/**'
+    - '!node_modules/@nestjs/cli/**'
+    - '!node_modules/@nestjs/schematics/**'
+    - '!node_modules/@nestjs/testing/**'
+    - '!node_modules/typescript/**'
+    - '!node_modules/ts-node/**'
+    - '!node_modules/ts-jest/**'
+    - '!node_modules/ts-loader/**'
+    - '!node_modules/tsconfig-paths/**'
+    - '!node_modules/webpack/**'
+    - '!node_modules/terser-webpack-plugin/**'
+    - '!node_modules/@esbuild/**'
+
+    # Testing
+    - '!node_modules/jest/**'
+    - '!node_modules/jest-*/**'
+    - '!node_modules/@jest/**'
+    - '!node_modules/supertest/**'
+    - '!node_modules/@babel/**'
+
+    # Linting / formatting
+    - '!node_modules/eslint/**'
+    - '!node_modules/eslint-*/**'
+    - '!node_modules/@typescript-eslint/**'
+    - '!node_modules/prettier/**'
+
+    # Serverless tooling (globally installed, not needed in package)
+    - '!node_modules/serverless/**'
+    - '!node_modules/serverless-*/**'
+    - '!node_modules/java-invoke-local/**'
+
+    # Browser/build artifacts
+    - '!node_modules/caniuse-lite/**'
+    - '!node_modules/browserslist/**'
+
+    # Type declarations & source maps inside packages
+    - '!node_modules/@types/**'
+    - '!node_modules/**/*.d.ts'
+    - '!node_modules/**/*.map'
+
+    # Docs / metadata inside packages
+    - '!node_modules/**/LICENSE*'
+    - '!node_modules/**/CHANGELOG*'
+    - '!node_modules/**/README*'
+    - '!node_modules/**/*.md'
+    - '!node_modules/**/test/**'
+    - '!node_modules/**/tests/**'
+    - '!node_modules/**/__tests__/**'
+
+functions:
+  api:
+    handler: dist/lambda.handler
+    description: MrKapu Wall Service — posts, reactions, comments, shares
+    events:
+      - httpApi:
+          path: /
+          method: ANY
+      - httpApi:
+          path: /{proxy+}
+          method: ANY
